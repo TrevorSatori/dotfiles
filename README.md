@@ -5,9 +5,21 @@ My DWM build
 # install 
 
 1. clone the repo
-2. cd inside repo
+2. cd inside dwm
 3. sudo make install
-4. profit 
+4. cd inside dwmblocks
+5. sudo make install
+
+# Putting All Together
+
+Once make install for dwm & dwm blocks is complete, we need a way to activate these programs
+
+1. in home dir (~) if .xinitrc file doesn't exist, create one (touch .xinitrc).
+2. inside .xinitrc add the following 2 lines to the end of file.  
+dwmblocks &
+exec dwm
+
+Once that is done you can type "startx" into a terminal & your window manager will be ready to go. 
 
 # Patches Used
 
