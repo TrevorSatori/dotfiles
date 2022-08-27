@@ -1,4 +1,4 @@
-# DWM
+# dotfiles
 
 My entire window manager build. 
 Alacritty config
@@ -11,7 +11,7 @@ picom config
 3. sudo make install
 4. cd inside dwmblocks
 5. sudo make install
-6. For nvim, alacritty & picom, make sure to add files to .config directory
+6. For Neovim, Alacritty & Picom, make sure to add files to .config directory
 # Putting All Together
 
 Once make install for dwm & dwm blocks is complete, we need a way to activate these programs
