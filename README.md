@@ -1,15 +1,17 @@
 # DWM
 
-My DWM build
+My entire window manager build. 
+Alacritty config
+nvim config
+picom config
 
 # install 
-
 1. clone the repo
 2. cd inside dwm
 3. sudo make install
 4. cd inside dwmblocks
 5. sudo make install
-
+6. For nvim, alacritty & picom, make sure to add files to .config directory
 # Putting All Together
 
 Once make install for dwm & dwm blocks is complete, we need a way to activate these programs
