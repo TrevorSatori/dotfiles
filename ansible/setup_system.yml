@@ -39,6 +39,9 @@
           - nmap
           - obsidian
           - unzip
+          - ripgrep
+          - gparted
+          - nerd-fonts
         state: present
 
     # --- DOCKER SETUP ---
@@ -86,6 +89,7 @@
           - hyprpaper
           - hyprlock
           - hyprshot
+          - swaync 
         state: present
 
     - name: Install AUR packages via paru
@@ -145,7 +149,7 @@
       command: rustup default stable
       when: "'stable' not in rust_stable_check.stdout"
 
-    # --- VIRTUALIZATION (Minimalist) ---
+    # --- VIRTUALIZATION (Optimized) ---
     - name: Install Lean Virtualization Stack
       pacman:
         name:
@@ -156,6 +160,20 @@
           - dnsmasq
           - iptables-nft
         state: present
+
+    - name: Configure libvirtd unix socket group
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_group\s*='
+        line: 'unix_sock_group = "libvirt"'
+      notify: restart libvirtd
+
+    - name: Configure libvirtd unix socket permissions
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_rw_perms\s*='
+        line: 'unix_sock_rw_perms = "0770"'
+      notify: restart libvirtd
 
     - name: Add user to libvirt and kvm groups
       user:
@@ -169,12 +187,17 @@
         enabled: yes
         state: started
 
-    - name: Ensure default network is active
+    - name: Ensure default network is defined, started, and autostarted
       shell: |
-        virsh net-autostart default || true
-        virsh net-start default || true
-      register: net_start_output
-      changed_when: "'already started' not in net_start_output.stderr"
+        if ! virsh net-info default >/dev/null 2>&1; then
+          virsh net-define /etc/libvirt/qemu/networks/default.xml
+        fi
+        virsh net-autostart default
+        if [ "$(virsh net-info default | grep 'Active' | awk '{print $2}')" = "no" ]; then
+          virsh net-start default
+        fi
+      register: virt_net_cmd
+      changed_when: "'started' in virt_net_cmd.stdout or 'defined' in virt_net_cmd.stdout"
 
 
     # --- MAINTENANCE & SECURITY ---
