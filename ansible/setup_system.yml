@@ -1,0 +1,257 @@
+- name: Arch Linux Desktop Setup
+  hosts: localhost
+  connection: local
+  become: true
+  vars:
+    # Set your repo here
+    username: "{{ ansible_user_id }}"
+    dotfiles_repo: "https://github.com/trevorsatori/dotfiles.git"
+
+  tasks:
+    # --- CORE UTILITIES & SYSTEM GROUPS ---
+    - name: Ensure base-devel and git are present
+      pacman:
+        name: [base-devel, git, sudo]
+        state: present
+
+    - name: Add user to sudoers (Passwordless)
+      copy:
+        content: "{{ username }} ALL=(ALL) NOPASSWD: ALL"
+        dest: "/etc/sudoers.d/{{ username }}"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+
+    - name: Install core system utilities
+      pacman:
+        name:
+          - fastfetch
+          - git
+          - thunar
+          - kitty
+          - steam
+          - starship
+          - pacman-contrib
+          - stow
+          - neovim
+          - reflector
+          - zsh
+          - rofi
+          - nmap
+          - obsidian
+          - unzip
+        state: present
+
+    # --- DOCKER SETUP ---
+    - name: Install Docker and Docker Compose
+      pacman:
+        name: [docker, docker-compose]
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: "{{ username }}"
+        groups: docker
+        append: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker.service
+        enabled: yes
+        state: started
+
+    # --- PARU (AUR HELPER) ---
+    - name: Check if paru is installed
+      command: which paru
+      register: paru_exists
+      ignore_errors: true
+      changed_when: false
+
+    - name: Clone and install paru
+      become: true
+      become_user: "{{ username }}"
+      shell: |
+        cd /tmp
+        rm -rf paru
+        git clone https://aur.archlinux.org/paru.git
+        cd paru
+        makepkg -si --noconfirm
+      when: paru_exists.rc != 0
+
+    # --- HYPRLAND & AUR PACKAGES ---
+    - name: Install Hyprland ecosystem
+      pacman:
+        name:
+          - hyprland
+          - hypridle
+          - hyprpaper
+          - hyprlock
+          - hyprshot
+        state: present
+
+    - name: Install AUR packages via paru
+      become: true
+      become_user: "{{ username }}"
+      command: "paru -S --noconfirm {{ item }}"
+      loop:
+        - arduino-ide-bin
+        - brave-bin
+        - cake-wallet
+        - code-features
+        - code-marketplace
+        - dracula-gtk-theme
+        - papirus-folders-catppuccin-git
+        - balena-etcher
+        - mullvad-vpn-bin
+        - cursor-bin
+        - ttf-courier-prime
+        - ttf-ms-fonts
+      register: paru_result
+      changed_when: "'nothing to do' not in paru_result.stdout"
+
+
+    # --- SHELL & PLUGINS ---
+    - name: Install ZSH plugins
+      pacman:
+        name:
+          - zsh-autosuggestions
+          - zsh-syntax-highlighting
+        state: present
+
+    - name: Change user shell to ZSH
+      user:
+        name: "{{ username }}"
+        shell: /bin/zsh
+
+    # --- LANGUAGES (Rust & Go) ---
+    - name: Install Programming Languages and Language Servers
+      pacman:
+        name: 
+          - rustup
+          - rust-analyzer
+          - go
+          - gopls
+          - goimports
+        state: present
+
+    - name: Check Rust stable toolchain
+      become_user: "{{ username }}"
+      shell: rustup toolchain list | grep "stable"
+      register: rust_stable_check
+      failed_when: false
+      changed_when: false
+
+    - name: Set Rust default toolchain to stable
+      become_user: "{{ username }}"
+      command: rustup default stable
+      when: "'stable' not in rust_stable_check.stdout"
+
+    # --- VIRTUALIZATION (Minimalist) ---
+    - name: Install Lean Virtualization Stack
+      pacman:
+        name:
+          - qemu-full
+          - libvirt
+          - virt-manager
+          - virt-viewer
+          - dnsmasq
+          - iptables-nft
+        state: present
+
+    - name: Add user to libvirt and kvm groups
+      user:
+        name: "{{ username }}"
+        groups: libvirt,kvm
+        append: yes
+
+    - name: Enable and start libvirtd
+      systemd:
+        name: libvirtd
+        enabled: yes
+        state: started
+
+    - name: Ensure default network is active
+      shell: |
+        virsh net-autostart default || true
+        virsh net-start default || true
+      register: net_start_output
+      changed_when: "'already started' not in net_start_output.stderr"
+
+
+    # --- MAINTENANCE & SECURITY ---
+    - name: Enable automated paccache
+      systemd:
+        name: paccache.timer
+        enabled: yes
+        state: started
+        
+    - name: Install and enable Reflector timer
+      pacman:
+        name: reflector
+        state: present
+    - systemd:
+        name: reflector.timer
+        enabled: yes
+        state: started
+
+    - name: Disable Root Login (Lock Password)
+      user:
+        name: root
+        password: "!"
+      comment: "Locks the root account so only sudo works"
+
+    # --- DOTFILES ---
+    - name: Clone dotfiles repository
+      become: true
+      become_user: "{{ username }}"
+      git:
+        repo: "{{ dotfiles_repo }}"
+        dest: "~/dotfiles"
+        recursive: yes
+
+    - name: Run stow to link dotfiles
+      become: true
+      become_user: "{{ username }}"
+      shell: |
+        cd ~/dotfiles
+        stow --ignore='ansible|grub' .
+
+    # --- GRUB AUTOMATION ---
+    - name: Ensure unzip is installed
+      pacman:
+        name: unzip
+        state: present
+
+    - name: Ensure GRUB themes directory exists
+      file:
+        path: /boot/grub/themes
+        state: directory
+        mode: '0755'
+
+    - name: Unzip and Deploy GRUB themes
+      unarchive:
+        src: "{{ item }}"
+        dest: /boot/grub/themes/
+        mode: '0755'
+        remote_src: false
+      with_fileglob:
+        - "~/dotfiles/grub/themes/*.zip"
+      register: themes_unpacked
+
+    - name: Set GRUB theme line
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_THEME='
+        line: 'GRUB_THEME="/boot/grub/themes/fallout-grub-theme-master/theme.txt"'
+      register: grub_theme_updated
+
+    - name: Set GRUB timeout
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_TIMEOUT='
+        line: 'GRUB_TIMEOUT=5'
+      register: grub_timeout_updated
+
+    - name: Regenerate GRUB config
+      command: grub-mkconfig -o /boot/grub/grub.cfg
+      # Runs if the config file was edited OR if a new zip was unpacked
+      when: grub_theme_updated.changed or grub_timeout_updated.changed or themes_unpacked.changed

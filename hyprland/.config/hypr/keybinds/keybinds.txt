@@ -1,0 +1,23 @@
+Open terminal                       Alt + Return
+Kill active window                  Alt + Q
+Toggle floating window              Alt + V
+Open app launcher                   Alt + SPACE
+Toggle pseudotiling                 Alt + P
+Toggle split mode                   Alt + T
+Open code editor                    Alt + C
+Open file manager                   Alt + E
+Open browser                        Alt + B
+Open notes                          Alt + N
+Lock screen                         Alt + ESCAPE
+Take screenshot to file             Alt + S
+Take screenshot to clipboard        Alt + Shift + S
+Open power menu                     Alt + Z
+Move focus left                     Alt + H
+Move focus right                    Alt + L
+Move focus up                       Alt + K
+Move focus down                     Alt + J
+Switch to workspace (1..10)         Alt + (1..10)
+Move window to workspace (1..10)    Alt + Shift + (1..10)
+Toggle scratchpad                   Alt + M
+Run e+1                             Alt + mouse_down
+Run e-1                             Alt + mouse_up

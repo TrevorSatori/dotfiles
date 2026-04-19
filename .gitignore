@@ -1,0 +1,8 @@
+# Ignore everything inside the themes folder
+grub/themes/*
+
+# But do NOT ignore the themes folder itself (needed for the next rule)
+!grub/themes/
+
+# Re-include only .zip files within that folder
+!grub/themes/*.zip
