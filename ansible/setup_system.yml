@@ -1,11 +1,13 @@
 - name: Arch Linux Desktop Setup
   hosts: localhost
   connection: local
-  become: true
   vars:
-    # Set your repo here
     username: "{{ ansible_user_id }}"
-    dotfiles_repo: "https://github.com/trevorsatori/dotfiles.git"
+    dotfiles_path: "{{ ansible_user_dir }}/.dotfiles"
+    exclude_packages: 
+      - grub
+      - ansible
+      - .git
 
   tasks:
     # --- CORE UTILITIES & SYSTEM GROUPS ---
@@ -15,6 +17,7 @@
         state: present
 
     - name: Add user to sudoers (Passwordless)
+      become: true
       copy:
         content: "{{ username }} ALL=(ALL) NOPASSWD: ALL"
         dest: "/etc/sudoers.d/{{ username }}"
@@ -31,54 +34,34 @@
           - steam
           - starship
           - pacman-contrib
+          - ollama
+          - vlc
+          - obsidian
+          - seahorse
+          - discord
+          - gvfs
+          - qbittorrent
           - stow
           - neovim
+          - gnome-keyring
+          - gcr-4
+          - signal-desktop
+          - libreoffice-still
+          - dbeaver
+          - spotfiy-launcher
           - reflector
           - zsh
           - rofi
           - nmap
           - obsidian
           - unzip
+          - keepassxc
           - ripgrep
           - gparted
           - nerd-fonts
+          - noto-fonts-emoji
         state: present
 
-    # --- DOCKER SETUP ---
-    - name: Install Docker and Docker Compose
-      pacman:
-        name: [docker, docker-compose]
-        state: present
-
-    - name: Add user to docker group
-      user:
-        name: "{{ username }}"
-        groups: docker
-        append: yes
-
-    - name: Enable and start Docker service
-      systemd:
-        name: docker.service
-        enabled: yes
-        state: started
-
-    # --- PARU (AUR HELPER) ---
-    - name: Check if paru is installed
-      command: which paru
-      register: paru_exists
-      ignore_errors: true
-      changed_when: false
-
-    - name: Clone and install paru
-      become: true
-      become_user: "{{ username }}"
-      shell: |
-        cd /tmp
-        rm -rf paru
-        git clone https://aur.archlinux.org/paru.git
-        cd paru
-        makepkg -si --noconfirm
-      when: paru_exists.rc != 0
 
     # --- HYPRLAND & AUR PACKAGES ---
     - name: Install Hyprland ecosystem
@@ -90,41 +73,10 @@
           - hyprlock
           - hyprshot
           - swaync 
+          - awww
+          - waybar
         state: present
 
-    - name: Install AUR packages via paru
-      become: true
-      become_user: "{{ username }}"
-      command: "paru -S --noconfirm {{ item }}"
-      loop:
-        - arduino-ide-bin
-        - brave-bin
-        - cake-wallet
-        - code-features
-        - code-marketplace
-        - dracula-gtk-theme
-        - papirus-folders-catppuccin-git
-        - balena-etcher
-        - mullvad-vpn-bin
-        - cursor-bin
-        - ttf-courier-prime
-        - ttf-ms-fonts
-      register: paru_result
-      changed_when: "'nothing to do' not in paru_result.stdout"
-
-
-    # --- SHELL & PLUGINS ---
-    - name: Install ZSH plugins
-      pacman:
-        name:
-          - zsh-autosuggestions
-          - zsh-syntax-highlighting
-        state: present
-
-    - name: Change user shell to ZSH
-      user:
-        name: "{{ username }}"
-        shell: /bin/zsh
 
     # --- LANGUAGES (Rust & Go) ---
     - name: Install Programming Languages and Language Servers
@@ -134,7 +86,8 @@
           - rust-analyzer
           - go
           - gopls
-          - goimports
+          - pyenv
+          - python-virtualenv
         state: present
 
     - name: Check Rust stable toolchain
@@ -149,8 +102,111 @@
       command: rustup default stable
       when: "'stable' not in rust_stable_check.stdout"
 
+
+    # --- DOCKER SETUP ---
+    - name: Install Docker and Docker Compose
+      pacman:
+        name: [docker, docker-compose]
+        state: present
+
+    - name: Add user to docker group
+      become: true
+      user:
+        name: "{{ username }}"
+        groups: docker
+        append: yes
+
+    - name: Enable and start Docker service
+      become: true
+      systemd:
+        name: docker.service
+        enabled: yes
+        state: started
+
+    # --- PARU (AUR HELPER) ---
+    # - name: Check if paru is installed
+    #   command: which paru
+    #   register: paru_exists
+    #   ignore_errors: true
+    #   changed_when: false
+    #
+    # - name: Clone and install paru
+    #   become: true
+    #   become_user: "{{ username }}"
+    #   environment: "/home/{{ username }}"
+    #   shell: |
+    #     rm -rf /tmp/paru
+    #     git clone https://aur.archlinux.org/paru.git /tmp/paru
+    #     cd /tmp/paru
+    #     makepkg -si --noconfirm
+    #   args:
+    #     creates: /usr/bin/paru
+    #   when: paru_exists.rc != 0
+
+    - name: Install AUR packages via paru
+      become: false
+      become_user: "{{ username }}"
+      command: "paru -S --noconfirm --needed --skipreview --useask {{ item }}"
+      loop:
+        - arduino-ide-bin
+        - brave-bin
+        - hyprshade
+        - cake-wallet
+        - code-features
+        - code-marketplace
+        - dracula-gtk-theme
+        - papirus-folders-catppuccin-git
+        - balena-etcher
+        - mullvad-vpn-bin
+        - cursor-bin
+        - ttf-courier-prime
+        - ttf-ms-fonts
+      register: paru_result
+      changed_when: "'nothing to do' not in paru_result.stdout"
+      tags: 
+        - paru_install
+
+
+    # --- SHELL & PLUGINS ---
+    - name: Install ZSH plugins
+      pacman:
+        name:
+          - zsh-autosuggestions
+          - zsh-syntax-highlighting
+        state: present
+
+    - name: Change user shell to ZSH
+      become: true
+      user:
+        name: "{{ username }}"
+        shell: /bin/zsh
+      tags:
+        - zsh
+
+    # --- SSH Client ---
+    - name: Ensure GNOME Keyring and GCR are installed
+      pacman:
+        name: 
+          - gnome-keyring
+          - gcr-4
+        state: present
+
+    - name: Enable and start gcr-ssh-agent socket for the user
+      systemd:
+        name: gcr-ssh-agent.socket
+        enabled: yes
+        state: started
+        scope: user
+
+    - name: Configure SSH_AUTH_SOCK in .zshrc
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/.zshrc"
+        line: 'export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/gcr/ssh"'
+        state: present
+        create: yes
+
     # --- VIRTUALIZATION (Optimized) ---
-    - name: Install Lean Virtualization Stack
+    - name: Install Virtualization Stack
       pacman:
         name:
           - qemu-full
@@ -160,32 +216,58 @@
           - dnsmasq
           - iptables-nft
         state: present
+      tags:
+        - virtualization
+    # --- THEME ---
+    - name: Set GTK icon theme to Dracula
+      become: false
+      command: gsettings set org.gnome.desktop.interface icon-theme "Dracula"
+      tags:
+        - theme
+
+    - name: Set System Theme to Dark
+      become: false
+      command: gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+      tags:
+        - theme
 
     - name: Configure libvirtd unix socket group
+      become: true
       lineinfile:
         path: /etc/libvirt/libvirtd.conf
         regexp: '^#?\s*unix_sock_group\s*='
         line: 'unix_sock_group = "libvirt"'
       notify: restart libvirtd
+      tags: 
+        - virtualization
 
     - name: Configure libvirtd unix socket permissions
+      become: true
       lineinfile:
         path: /etc/libvirt/libvirtd.conf
         regexp: '^#?\s*unix_sock_rw_perms\s*='
         line: 'unix_sock_rw_perms = "0770"'
       notify: restart libvirtd
+      tags:
+        - virtualization
 
     - name: Add user to libvirt and kvm groups
+      become: true
       user:
         name: "{{ username }}"
         groups: libvirt,kvm
         append: yes
+      tags:
+        - virtualization
 
     - name: Enable and start libvirtd
+      become: true
       systemd:
         name: libvirtd
         enabled: yes
         state: started
+      tags:
+        - virtualization
 
     - name: Ensure default network is defined, started, and autostarted
       shell: |
@@ -198,6 +280,8 @@
         fi
       register: virt_net_cmd
       changed_when: "'started' in virt_net_cmd.stdout or 'defined' in virt_net_cmd.stdout"
+      tags:
+        - virtualization
 
 
     # --- MAINTENANCE & SECURITY ---
@@ -206,12 +290,14 @@
         name: paccache.timer
         enabled: yes
         state: started
-        
+
     - name: Install and enable Reflector timer
       pacman:
         name: reflector
         state: present
-    - systemd:
+
+    - name: Enable Reflector Timer
+      systemd:
         name: reflector.timer
         enabled: yes
         state: started
@@ -219,45 +305,52 @@
     - name: Disable Root Login (Lock Password)
       user:
         name: root
-        password: "!"
-      comment: "Locks the root account so only sudo works"
+        password_lock: yes
+        comment: "Locks the root account so only sudo works"
 
-    # --- DOTFILES ---
-    - name: Clone dotfiles repository
-      become: true
-      become_user: "{{ username }}"
-      git:
-        repo: "{{ dotfiles_repo }}"
-        dest: "~/dotfiles"
-        recursive: yes
+
+    # --- STOW ---
+    - name: Find all potential stow packages (top-level)
+      find: 
+        paths: "{{ dotfiles_path }}"
+        file_type: directory
+        depth: 1
+      register: all_packages
+
 
     - name: Run stow to link dotfiles
-      become: true
-      become_user: "{{ username }}"
-      shell: |
-        cd ~/dotfiles
-        stow --ignore='ansible|grub' .
+      command: stow {{ item.path | basename }}
+      args:
+        chdir: "{{ dotfiles_path }}"
+      loop: "{{ all_packages.files }}"
+      when: item.path | basename not in exclude_packages
+      changed_when: false
 
     # --- GRUB AUTOMATION ---
     - name: Ensure unzip is installed
       pacman:
         name: unzip
         state: present
+      become: true
 
-    - name: Ensure GRUB themes directory exists
+    - name: Ensure GRUB themes directory exists (owned by root)
       file:
         path: /boot/grub/themes
         state: directory
+        owner: root
+        group: root
         mode: '0755'
+      become: true
 
-    - name: Unzip and Deploy GRUB themes
+    - name: Unzip and Deploy GRUB themes (as root)
+      become: true
       unarchive:
         src: "{{ item }}"
-        dest: /boot/grub/themes/
-        mode: '0755'
+        dest: /boot/grub/themes
         remote_src: false
-      with_fileglob:
-        - "~/dotfiles/grub/themes/*.zip"
+        extra_opts: ['-q']   # quiet mode
+      loop: "{{ query('fileglob', dotfiles_path + '/grub/themes/*.zip') }}"
+      become: true
       register: themes_unpacked
 
     - name: Set GRUB theme line
@@ -265,6 +358,7 @@
         path: /etc/default/grub
         regexp: '^GRUB_THEME='
         line: 'GRUB_THEME="/boot/grub/themes/fallout-grub-theme-master/theme.txt"'
+      become: true
       register: grub_theme_updated
 
     - name: Set GRUB timeout
@@ -272,9 +366,10 @@
         path: /etc/default/grub
         regexp: '^GRUB_TIMEOUT='
         line: 'GRUB_TIMEOUT=5'
+      become: true
       register: grub_timeout_updated
 
     - name: Regenerate GRUB config
       command: grub-mkconfig -o /boot/grub/grub.cfg
-      # Runs if the config file was edited OR if a new zip was unpacked
+      become: true
       when: grub_theme_updated.changed or grub_timeout_updated.changed or themes_unpacked.changed

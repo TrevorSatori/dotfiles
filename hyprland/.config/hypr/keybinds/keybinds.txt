@@ -21,3 +21,4 @@ Move window to workspace (1..10)    Alt + Shift + (1..10)
 Toggle scratchpad                   Alt + M
 Run e+1                             Alt + mouse_down
 Run e-1                             Alt + mouse_up
+Toggle Grayscale                    Alt + SHIFT + G
