@@ -1,0 +1,52 @@
+- name: Configure Execution Identity and Permissions
+  hosts: localhost
+  become: true
+  vars:
+    # High-level identity variables
+    exec_user_name: "mervyn"
+    exec_user_id: 1800
+    exec_group_id: 1800
+    
+    # Paths (User assumes these are already mounted/present)
+    storage_pool_path: "/mnt/pool/media"
+    media_stack_path: "/opt/media_stack"
+
+  tasks:
+    - name: Ensure the execution group exists
+      ansible.builtin.group:
+        name: "{{ exec_user_name }}"
+        gid: "{{ exec_group_id }}"
+        state: present
+
+    - name: Create the execution system user
+      ansible.builtin.user:
+        name: "{{ exec_user_name }}"
+        uid: "{{ exec_user_id }}"
+        group: "{{ exec_user_name }}"
+        shell: /usr/bin/nologin
+        create_home: no
+        system: yes
+        state: present
+
+    - name: Link calling user to the execution group
+      ansible.builtin.user:
+        name: "{{ lookup('env', 'USER') }}"
+        groups: "{{ exec_user_name }}"
+        append: yes
+
+    - name: Apply hardened permissions to existing storage pool
+      ansible.builtin.file:
+        path: "{{ storage_pool_path }}"
+        owner: "{{ exec_user_id }}"
+        group: "{{ exec_group_id }}"
+        mode: '2775' # SetGID for inheritance
+        recurse: yes
+
+    - name: Initialize and secure the application path in /opt
+      ansible.builtin.file:
+        path: "{{ media_stack_path }}"
+        state: directory
+        owner: "{{ exec_user_id }}"
+        group: "{{ exec_group_id }}"
+        mode: '2775'
+        recurse: yes

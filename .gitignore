@@ -6,3 +6,5 @@ grub/themes/*
 
 # Re-include only .zip files within that folder
 !grub/themes/*.zip
+
+**/.env

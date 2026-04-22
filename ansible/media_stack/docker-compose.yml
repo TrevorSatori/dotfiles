@@ -1,0 +1,150 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8080:8080 # qBittorrent Web UI
+      - 6881:6881 # qBittorrent TCP
+      - 6881:6881/udp # qBittorrent UDP
+      - 8989:8989 # Sonarr
+      - 7878:7878 # Radarr
+      - 9696:9696 # Prowlarr (Optional, see note below)
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${MULLVAD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${MULLVAD_ADDRESS}
+      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.1.0/24
+    restart: always
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8080
+    volumes:
+      - ./qbittorrent/appdata:/config
+      - ${MEDIA_ROOT}/downloads:/downloads
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+    volumes:
+      - ./sonarr/data:/config
+      - ${MEDIA_ROOT}/shows:/shows
+      - ${MEDIA_ROOT}/downloads:/downloads
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+    volumes:
+      - ./radarr/data:/config 
+      - ${MEDIA_ROOT}/movies:/movies
+      - ${MEDIA_ROOT}/downloads:/downloads
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: "service:gluetun" # Recommended to avoid ISP blocking indexers
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+    volumes:
+      - ./prowlarr/data:/config
+      - ./scripts:/scripts
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    user: 1800:1800
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    ports:
+      - '8096:8096'
+    volumes:
+      - ./jellyfin/config:/config
+      - ./jellyfin/cache:/cache
+      - type: bind
+        source: ${MEDIA_ROOT}
+        target: /media
+    restart: unless-stopped

@@ -12,6 +12,8 @@ export KEYTIMEOUT=1
 # Default Editor
 export EDITOR=nvim
 
+export TERM=xterm-256color
+
 # Enable word navigation with Ctrl + Arrow keys
 # (Note: Some terminal emulators might need different codes, 
 # but these are standard for xterm/alacritty/foot)
