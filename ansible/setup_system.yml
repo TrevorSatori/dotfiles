@@ -16,6 +16,26 @@
         name: [base-devel, git, sudo]
         state: present
 
+    - name: Enable multilib, multilib-testing, and extra repos
+      blockinfile:
+        path: /etc/pacman.conf
+        marker: "# {mark} ANSIBLE MANAGED REPOS"
+        block: |
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
+
+          [multilib-testing]
+          Include = /etc/pacman.d/mirrorlist
+
+          [extra]
+          Include = /etc/pacman.d/mirrorlist
+      become: true
+
+    - name: Update pacman cache after enabling repos
+      pacman:
+        update_cache: yes
+      become: true
+
     - name: Add user to sudoers (Passwordless)
       become: true
       copy:
@@ -25,13 +45,13 @@
         validate: 'visudo -cf %s'
 
     - name: Install core system utilities
+      become: true
       pacman:
         name:
           - fastfetch
           - git
           - thunar
           - kitty
-          - steam
           - starship
           - pacman-contrib
           - ollama
@@ -44,12 +64,18 @@
           - qbittorrent
           - stow
           - neovim
+          - 7zip
+          - cronie
+          - rsync
+          - foliate
+          - languagetool
+          - htop
+          - network-manager-applet
           - gnome-keyring
           - gcr-4
           - signal-desktop
           - libreoffice-still
           - dbeaver
-          - spotfiy-launcher
           - reflector
           - zsh
           - rofi
@@ -59,13 +85,31 @@
           - keepassxc
           - ripgrep
           - gparted
+          - adwaita-icon-theme 
+          - adwaita-cursors
+          - gnome-themes-extra
           - nerd-fonts
           - noto-fonts-emoji
+          - spotify-launcher
         state: present
+    
+    - name: Ensure cronie service is enabled and started
+      become: true
+      ansible.builtin.service:
+        name: cronie
+        enabled: true
+        state: started
 
+    - name: Install multilib packages
+      become: true
+      pacman:
+        name:
+          - steam
+        state: present
 
     # --- HYPRLAND & AUR PACKAGES ---
     - name: Install Hyprland ecosystem
+      become: true
       pacman:
         name:
           - hyprland
@@ -81,6 +125,7 @@
 
     # --- LANGUAGES (Rust & Go) ---
     - name: Install Programming Languages and Language Servers
+      become: true
       pacman:
         name: 
           - rustup
@@ -106,6 +151,7 @@
 
     # --- DOCKER SETUP ---
     - name: Install Docker and Docker Compose
+      become: true
       pacman:
         name: [docker, docker-compose]
         state: present
@@ -170,6 +216,7 @@
 
     # --- SHELL & PLUGINS ---
     - name: Install ZSH plugins
+      become: true
       pacman:
         name:
           - zsh-autosuggestions
@@ -199,15 +246,9 @@
         state: started
         scope: user
 
-    - name: Configure SSH_AUTH_SOCK in .zshrc
-      lineinfile:
-        path: "{{ ansible_env.HOME }}/.zshrc"
-        line: 'export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/gcr/ssh"'
-        state: present
-        create: yes
-
     # --- VIRTUALIZATION (Optimized) ---
     - name: Install Virtualization Stack
+      become: true
       pacman:
         name:
           - qemu-full
@@ -220,6 +261,12 @@
       tags:
         - virtualization
     # --- THEME ---
+    - name: Set GTK theme to Dracula
+      become: false
+      command: gsettings set org.gnome.desktop.interface gtk-theme "Dracula"
+      tags:
+        - theme
+
     - name: Set GTK icon theme to Dracula
       become: false
       command: gsettings set org.gnome.desktop.interface icon-theme "Dracula"
@@ -287,23 +334,27 @@
 
     # --- MAINTENANCE & SECURITY ---
     - name: Enable automated paccache
+      become: true
       systemd:
         name: paccache.timer
         enabled: yes
         state: started
 
     - name: Install and enable Reflector timer
+      become: true
       pacman:
         name: reflector
         state: present
 
     - name: Enable Reflector Timer
+      become: true
       systemd:
         name: reflector.timer
         enabled: yes
         state: started
 
     - name: Disable Root Login (Lock Password)
+      become: true
       user:
         name: root
         password_lock: yes
@@ -329,6 +380,7 @@
 
     # --- GRUB AUTOMATION ---
     - name: Ensure unzip is installed
+      become: true
       pacman:
         name: unzip
         state: present
