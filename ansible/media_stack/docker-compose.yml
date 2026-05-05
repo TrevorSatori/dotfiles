@@ -14,7 +14,8 @@ services:
       - 6881:6881/udp # qBittorrent UDP
       - 8989:8989 # Sonarr
       - 7878:7878 # Radarr
-      - 9696:9696 # Prowlarr (Optional, see note below)
+      - 8686:8686 # Lidarr
+      - 9696:9696 # Prowlarr
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
@@ -43,6 +44,33 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ./qbittorrent/appdata:/config
+      - ${MEDIA_ROOT}/downloads:/downloads
+      - ${MEDIA_ROOT}:/media
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - FOWNER
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+    volumes:
+      - ./lidarr/config:/config
+      - ${MEDIA_ROOT}/music:/music 
       - ${MEDIA_ROOT}/downloads:/downloads
     depends_on:
       gluetun:
@@ -147,4 +175,38 @@ services:
       - type: bind
         source: ${MEDIA_ROOT}
         target: /media
+    restart: unless-stopped
+
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+    volumes:
+      - ./calibre/config:/config
+      - ${MEDIA_ROOT}/books:/books
+    ports:
+      - 8082:8080 # GUI
+      - 8181:8181 # Server
+      - 8084:8081 # OPDS
+    shm_size: "1gb"
+    restart: unless-stopped
+
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=Etc/UTC
+      - DOCKER_MODS=linuxserver/mods:universal-calibre 
+    volumes:
+      - ./calibre-web/data:/config
+      - ${MEDIA_ROOT}/books:/books # Pointed to /books to match Calibre
+    ports:
+      - 8083:8083
     restart: unless-stopped
