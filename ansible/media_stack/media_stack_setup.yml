@@ -3,12 +3,12 @@
   become: true
   vars:
     # High-level identity variables
-    exec_user_name: "mervyn"
+    exec_user_name: "lo_pan"
     exec_user_id: 1800
     exec_group_id: 1800
     
     # Paths (User assumes these are already mounted/present)
-    storage_pool_path: "/mnt/pool/media"
+    storage_pool_path: "/data"
     media_stack_path: "/opt/media_stack"
 
   tasks:

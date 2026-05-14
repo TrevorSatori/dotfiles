@@ -16,6 +16,7 @@ services:
       - 7878:7878 # Radarr
       - 8686:8686 # Lidarr
       - 9696:9696 # Prowlarr
+      - 8191:8191 # flaresolverr
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
@@ -209,4 +210,14 @@ services:
       - ${MEDIA_ROOT}/books:/books # Pointed to /books to match Calibre
     ports:
       - 8083:8083
+    restart: unless-stopped
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Etc/UTC
     restart: unless-stopped
