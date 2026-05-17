@@ -175,6 +175,7 @@ hl.bind(mainMod .. " + N",         hl.dsp.exec_cmd(notes))
 hl.bind(mainMod .. " + ESCAPE",    hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mainMod .. " + S",         hl.dsp.exec_cmd("hyprshot -m region --freeze --clipboard-only"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("hyprshot -m region --freeze -o ~/screenshots"))
+hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd(themeSwitcher))
 hl.bind(mainMod .. " + Z",         hl.dsp.exec_cmd(powerMenu))
 
 -- Window Navigation (HJKL)

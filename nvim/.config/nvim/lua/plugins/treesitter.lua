@@ -1,9 +1,10 @@
 return {
 	"nvim-treesitter/nvim-treesitter",
 	build = ":TSUpdate",
-	event = { "BufReadPre", "BufNewFile" },
+	-- Note: Removed event = { ... } because the new version doesn't support lazy loading
 	config = function()
-		local treesitter = require("nvim-treesitter.configs")
+		-- Dropped the 's' at the end of configs
+		local treesitter = require("nvim-treesitter.config")
 		treesitter.setup({
 			highlight = { enable = true },
 			indent = { enable = true },

@@ -12,23 +12,20 @@
   tasks:
     # --- CORE UTILITIES & SYSTEM GROUPS ---
     - name: Ensure base-devel and git are present
+      become: true
       pacman:
         name: [base-devel, git, sudo]
         state: present
 
-    - name: Enable multilib, multilib-testing, and extra repos
-      blockinfile:
+    - name: Ensure multilib and extra repos are enabled
+      ansible.builtin.replace:
         path: /etc/pacman.conf
-        marker: "# {mark} ANSIBLE MANAGED REPOS"
-        block: |
-          [multilib]
-          Include = /etc/pacman.d/mirrorlist
-
-          [multilib-testing]
-          Include = /etc/pacman.d/mirrorlist
-
-          [extra]
-          Include = /etc/pacman.d/mirrorlist
+        regexp: '^#\s*(\[{{ item }}\](?:\n\s*Include\s*=\s*/etc/pacman.d/mirrorlist)?)'
+        replace: '[{{ item }}]\nInclude = /etc/pacman.d/mirrorlist'
+      loop:
+        - extra
+        - multilib
+        - multilib-testing
       become: true
 
     - name: Update pacman cache after enabling repos
@@ -92,6 +89,24 @@
           - noto-fonts-emoji
           - spotify-launcher
         state: present
+
+    # --- STOW ---
+    - name: Find all potential stow packages (top-level)
+      find: 
+        paths: "{{ dotfiles_path }}"
+        file_type: directory
+        depth: 1
+      register: all_packages
+
+
+    - name: Run stow to link dotfiles
+      command: stow {{ item.path | basename }}
+      args:
+        chdir: "{{ dotfiles_path }}"
+      loop: "{{ all_packages.files }}"
+      when: item.path | basename not in exclude_packages
+      changed_when: false
+
     
     - name: Ensure cronie service is enabled and started
       become: true
@@ -246,20 +261,6 @@
         state: started
         scope: user
 
-    # --- VIRTUALIZATION (Optimized) ---
-    - name: Install Virtualization Stack
-      become: true
-      pacman:
-        name:
-          - qemu-full
-          - libvirt
-          - virt-manager
-          - virt-viewer
-          - dnsmasq
-          - iptables-nft
-        state: present
-      tags:
-        - virtualization
     # --- THEME ---
     - name: Set GTK theme to Dracula
       become: false
@@ -278,58 +279,6 @@
       command: gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
       tags:
         - theme
-
-    - name: Configure libvirtd unix socket group
-      become: true
-      lineinfile:
-        path: /etc/libvirt/libvirtd.conf
-        regexp: '^#?\s*unix_sock_group\s*='
-        line: 'unix_sock_group = "libvirt"'
-      notify: restart libvirtd
-      tags: 
-        - virtualization
-
-    - name: Configure libvirtd unix socket permissions
-      become: true
-      lineinfile:
-        path: /etc/libvirt/libvirtd.conf
-        regexp: '^#?\s*unix_sock_rw_perms\s*='
-        line: 'unix_sock_rw_perms = "0770"'
-      notify: restart libvirtd
-      tags:
-        - virtualization
-
-    - name: Add user to libvirt and kvm groups
-      become: true
-      user:
-        name: "{{ username }}"
-        groups: libvirt,kvm
-        append: yes
-      tags:
-        - virtualization
-
-    - name: Enable and start libvirtd
-      become: true
-      systemd:
-        name: libvirtd
-        enabled: yes
-        state: started
-      tags:
-        - virtualization
-
-    - name: Ensure default network is defined, started, and autostarted
-      shell: |
-        if ! virsh net-info default >/dev/null 2>&1; then
-          virsh net-define /etc/libvirt/qemu/networks/default.xml
-        fi
-        virsh net-autostart default
-        if [ "$(virsh net-info default | grep 'Active' | awk '{print $2}')" = "no" ]; then
-          virsh net-start default
-        fi
-      register: virt_net_cmd
-      changed_when: "'started' in virt_net_cmd.stdout or 'defined' in virt_net_cmd.stdout"
-      tags:
-        - virtualization
 
 
     # --- MAINTENANCE & SECURITY ---
@@ -361,22 +310,6 @@
         comment: "Locks the root account so only sudo works"
 
 
-    # --- STOW ---
-    - name: Find all potential stow packages (top-level)
-      find: 
-        paths: "{{ dotfiles_path }}"
-        file_type: directory
-        depth: 1
-      register: all_packages
-
-
-    - name: Run stow to link dotfiles
-      command: stow {{ item.path | basename }}
-      args:
-        chdir: "{{ dotfiles_path }}"
-      loop: "{{ all_packages.files }}"
-      when: item.path | basename not in exclude_packages
-      changed_when: false
 
     # --- Gaming --- #
 
@@ -439,3 +372,138 @@
       command: grub-mkconfig -o /boot/grub/grub.cfg
       become: true
       when: grub_theme_updated.changed or grub_timeout_updated.changed or themes_unpacked.changed
+
+    # --- VIRTUALIZATION (Optimized) ---
+    - name: Install Virtualization Stack
+      become: true
+      pacman:
+        name:
+          - qemu-full
+          - libvirt
+          - virt-manager
+          - virt-viewer
+          - dnsmasq
+          - iptables-nft
+        state: present
+      tags:
+        - virtualization
+
+    - name: Configure libvirtd unix socket group
+      become: true
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_group\s*='
+        line: 'unix_sock_group = "libvirt"'
+      notify: restart libvirtd
+      tags: 
+        - virtualization
+
+    - name: Configure libvirtd unix socket permissions
+      become: true
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_rw_perms\s*='
+        line: 'unix_sock_rw_perms = "0770"'
+      notify: restart libvirtd
+      tags:
+        - virtualization
+
+    - name: Add user to libvirt and kvm groups
+      become: true
+      user:
+        name: "{{ username }}"
+        groups: libvirt,kvm
+        append: yes
+      tags:
+        - virtualization
+
+    - name: Enable and start libvirtd
+      become: true
+      systemd:
+        name: libvirtd
+        enabled: yes
+        state: started
+      tags:
+        - virtualization
+
+    - name: Ensure default network is defined, started, and autostarted
+      shell: |
+        if ! virsh net-info default >/dev/null 2>&1; then
+          virsh net-define /etc/libvirt/qemu/networks/default.xml
+        fi
+        virsh net-autostart default
+        if [ "$(virsh net-info default | grep 'Active' | awk '{print $2}')" = "no" ]; then
+          virsh net-start default
+        fi
+      register: virt_net_cmd
+      changed_when: "'started' in virt_net_cmd.stdout or 'defined' in virt_net_cmd.stdout"
+      tags:
+        - virtualization
+
+    # --- VIRTUALIZATION (Optimized) ---
+    - name: Install Virtualization Stack
+      become: true
+      pacman:
+        name:
+          - qemu-full
+          - libvirt
+          - virt-manager
+          - virt-viewer
+          - dnsmasq
+          - iptables-nft
+        state: present
+      tags:
+        - virtualization
+
+    - name: Configure libvirtd unix socket group
+      become: true
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_group\s*='
+        line: 'unix_sock_group = "libvirt"'
+      notify: restart libvirtd
+      tags: 
+        - virtualization
+
+    - name: Configure libvirtd unix socket permissions
+      become: true
+      lineinfile:
+        path: /etc/libvirt/libvirtd.conf
+        regexp: '^#?\s*unix_sock_rw_perms\s*='
+        line: 'unix_sock_rw_perms = "0770"'
+      notify: restart libvirtd
+      tags:
+        - virtualization
+
+    - name: Add user to libvirt and kvm groups
+      become: true
+      user:
+        name: "{{ username }}"
+        groups: libvirt,kvm
+        append: yes
+      tags:
+        - virtualization
+
+    - name: Enable and start libvirtd
+      become: true
+      systemd:
+        name: libvirtd
+        enabled: yes
+        state: started
+      tags:
+        - virtualization
+
+    - name: Ensure default network is defined, started, and autostarted
+      shell: |
+        if ! virsh net-info default >/dev/null 2>&1; then
+          virsh net-define /etc/libvirt/qemu/networks/default.xml
+        fi
+        virsh net-autostart default
+        if [ "$(virsh net-info default | grep 'Active' | awk '{print $2}')" = "no" ]; then
+          virsh net-start default
+        fi
+      register: virt_net_cmd
+      changed_when: "'started' in virt_net_cmd.stdout or 'defined' in virt_net_cmd.stdout"
+      tags:
+        - virtualization
+
