@@ -48,6 +48,7 @@
           - fastfetch
           - flatpak
           - git
+          - less
           - thunar
           - kitty
           - starship
@@ -57,6 +58,7 @@
           - seahorse
           - discord
           - gvfs
+          - gvfs-smb
           - btrfs-progs
           - qbittorrent
           - stow
