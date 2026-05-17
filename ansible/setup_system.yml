@@ -49,6 +49,7 @@
       pacman:
         name:
           - fastfetch
+          - flatpak
           - git
           - thunar
           - kitty
@@ -377,7 +378,20 @@
       when: item.path | basename not in exclude_packages
       changed_when: false
 
-    # --- GRUB AUTOMATION ---
+    # --- Gaming --- #
+
+    - name: Install Bottles and Flatseal via Flatpak
+      become: true
+      community.general.flatpak:
+        name:
+          - com.usebottles.bottles
+          - com.github.tchx84.Flatseal
+        state: present
+        method: system
+      tags:
+        - gaming
+
+    # --- GRUB AUTOMATION --- #
     - name: Ensure unzip is installed
       become: true
       pacman:
