@@ -248,27 +248,65 @@ template_accent="$(get_rofi_color "$TEMPLATE_DIR/rofi_colors.rasi" "selected")"
 [[ -z "$template_fg" ]] && template_fg="#FFFFFF"
 [[ -z "$template_accent" ]] && template_accent="#18CBEF"
 
+# --- Update config files ---
+
+# Rofi setup
 replace_color_everywhere "$TARGET_DIR/rofi_colors.rasi" "$template_bg" "$bg"
 replace_color_everywhere "$TARGET_DIR/rofi_colors.rasi" "$template_bg_alt" "$bg_alt"
 replace_color_everywhere "$TARGET_DIR/rofi_colors.rasi" "$template_fg" "$fg"
 replace_color_everywhere "$TARGET_DIR/rofi_colors.rasi" "$template_accent" "$accent"
 
-replace_color_everywhere "$TARGET_DIR/kitty_theme.conf" "$template_bg" "$bg"
-replace_color_everywhere "$TARGET_DIR/kitty_theme.conf" "$template_fg" "$fg"
-replace_color_everywhere "$TARGET_DIR/kitty_theme.conf" "$template_accent" "$accent"
-
+# Waybar setup
 replace_color_everywhere "$TARGET_DIR/waybar_style.css" "$template_bg" "$bg"
 replace_color_everywhere "$TARGET_DIR/waybar_style.css" "$template_fg" "$fg"
 replace_color_everywhere "$TARGET_DIR/waybar_style.css" "$template_accent" "$accent"
 
+# Hyprlock setup
 set_hyprlock_var "$TARGET_DIR/hyprlock_colors.conf" "color" "$fg"
 set_hyprlock_var "$TARGET_DIR/hyprlock_colors.conf" "input_outer_color" "$accent"
 set_hyprlock_var "$TARGET_DIR/hyprlock_colors.conf" "input_inner_color" "$bg_alt"
 set_hyprlock_var "$TARGET_DIR/hyprlock_colors.conf" "input_font_color" "$fg"
 
+# Hyprland setup
 template_accent_rgba="${template_accent#\#}ff"
 accent_rgba="${accent#\#}ff"
 replace_color_everywhere "$TARGET_DIR/hypr.conf" "$template_accent_rgba" "$accent_rgba"
+
+# --- Kitty Theme generation (fixes visibility issues like image_420a3e.png) ---
+bg_shading_1="$(adjust_color "$bg" 8)"   # Slight lift for borders/dark fields
+bg_shading_2="$(adjust_color "$bg" 20)"  # Contrast block surface (htop accent backgrounds)
+bg_shading_3="$(adjust_color "$bg" 35)"  # Selection background / lighter terminal blocks
+fg_subdued="$(adjust_color "$fg" -40)"   # Low priority text (PIDs, inactive tabs)
+
+cat << EOF > "$TARGET_DIR/kitty_theme.conf"
+# Automatically generated kitty theme from wallpaper color profile
+
+background            $bg
+foreground            $fg
+selection_background  $accent
+selection_foreground  $bg
+cursor                $accent
+
+# ANSI Colors 0-7 (Normal/Darker tones)
+color0  $bg
+color1  $accent
+color2  $(adjust_color "$accent" -20)
+color3  $bg_shading_3
+color4  $(adjust_color "$accent" 15)
+color5  $bg_shading_2
+color6  $(adjust_color "$accent" -10)
+color7  $fg_subdued
+
+# ANSI Colors 8-15 (Bright/Lighter tones)
+color8  $bg_shading_1
+color9  $accent
+color10 $(adjust_color "$accent" 10)
+color11 $fg
+color12 $(adjust_color "$accent" 30)
+color13 $bg_shading_3
+color14 $fg_subdued
+color15 $fg
+EOF
 
 echo "✅ New rice created: $TARGET_DIR"
 echo "   wallpaper: $TARGET_DIR/wallpaper.$ext"

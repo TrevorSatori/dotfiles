@@ -10,6 +10,7 @@
 		"format": "{icon}  {volume}%",
 		"format-muted": "muted",
 		"on-click":"pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-click-right": "pavucontrol",
 		"format-icons": {
 			"default": ["", "", ""]
 		}

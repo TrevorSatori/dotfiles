@@ -49,6 +49,7 @@
           - flatpak
           - git
           - less
+          - stripe-cli-bin
           - thunar
           - kitty
           - starship
@@ -63,6 +64,7 @@
           - qbittorrent
           - stow
           - neovim
+          - parallel
           - 7zip
           - cronie
           - rsync
@@ -130,6 +132,7 @@
       pacman:
         name:
           - hyprland
+          - hyprsunset
           - hypridle
           - hyprpaper
           - hyprlock

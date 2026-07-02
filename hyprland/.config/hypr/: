@@ -164,20 +164,9 @@ hl.bind(mainMod .. " + SPACE",     hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + T",         hl.dsp.layout("swapsplit"))
 hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload && pkill waybar && hyprctl dispatch exec waybar"))
-
-
--- -- Add this state variable somewhere above your keybindings section
-local grayscale_active = false
-
--- Use this modern Lua block for your grayscale toggle bind
+-- hl.bind(mainMod .. " + SHIFT + G", hl.dsp.exec_cmd("hyprshade toggle grayscale"))
 hl.bind(mainMod .. " + SHIFT + G", function()
-    if grayscale_active then
-        hl.config({ decoration = { screen_shader = "" } })
-        grayscale_active = false
-    else
-        hl.config({ decoration = { screen_shader = "~/.config/hypr/shaders/grayscale.glsl" } })
-        grayscale_active = true
-    end
+    os.execute("hyprshade toggle /home/satori/.config/hypr/shaders/grayscale.glsl")
 end)
 
 -- Program Binds
