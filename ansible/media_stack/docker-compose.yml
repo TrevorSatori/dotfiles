@@ -16,13 +16,15 @@ services:
       - 7878:7878 # Radarr
       - 8686:8686 # Lidarr
       - 9696:9696 # Prowlarr
-      - 8191:8191 # flaresolverr
+      - 8191:8191 # Flaresolverr
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
       - WIREGUARD_PRIVATE_KEY=${MULLVAD_PRIVATE_KEY}
       - WIREGUARD_ADDRESSES=${MULLVAD_ADDRESS}
-      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.1.0/24
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24
+      - DNS_UPDATE_PERIOD=0
+      - DNS_ADDRESS=1.1.1.1
     restart: always
 
   qbittorrent:
@@ -45,8 +47,8 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ./qbittorrent/appdata:/config
-      - ${MEDIA_ROOT}/downloads:/downloads
-      - ${MEDIA_ROOT}:/media
+      - ${ROOT_DIR}/downloads:/downloads
+      - ${ROOT_DIR}/media:/media
     depends_on:
       gluetun:
         condition: service_healthy
@@ -71,8 +73,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - ./lidarr/config:/config
-      - ${MEDIA_ROOT}/music:/music 
-      - ${MEDIA_ROOT}/downloads:/downloads
+      - ${ROOT_DIR}/media/music:/music 
+      - ${ROOT_DIR}/downloads:/downloads
     depends_on:
       gluetun:
         condition: service_healthy
@@ -97,8 +99,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - ./sonarr/data:/config
-      - ${MEDIA_ROOT}/shows:/shows
-      - ${MEDIA_ROOT}/downloads:/downloads
+      - ${ROOT_DIR}/media/shows:/shows
+      - ${ROOT_DIR}/downloads:/downloads
     depends_on:
       gluetun:
         condition: service_healthy
@@ -123,8 +125,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - ./radarr/data:/config 
-      - ${MEDIA_ROOT}/movies:/movies
-      - ${MEDIA_ROOT}/downloads:/downloads
+      - ${ROOT_DIR}/media/movies:/movies
+      - ${ROOT_DIR}/downloads:/downloads
     depends_on:
       gluetun:
         condition: service_healthy
@@ -155,6 +157,17 @@ services:
         condition: service_healthy
     restart: always
 
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    network_mode: "service:gluetun"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Etc/UTC
+    restart: unless-stopped
+
   jellyfin:
     image: jellyfin/jellyfin
     container_name: jellyfin
@@ -174,7 +187,7 @@ services:
       - ./jellyfin/config:/config
       - ./jellyfin/cache:/cache
       - type: bind
-        source: ${MEDIA_ROOT}
+        source: ${ROOT_DIR}/media
         target: /media
     restart: unless-stopped
 
@@ -189,7 +202,7 @@ services:
       - TZ=Etc/UTC
     volumes:
       - ./calibre/config:/config
-      - ${MEDIA_ROOT}/books:/books
+      - ${ROOT_DIR}/media/books:/books
     ports:
       - 8082:8080 # GUI
       - 8181:8181 # Server
@@ -197,27 +210,32 @@ services:
     shm_size: "1gb"
     restart: unless-stopped
 
-  calibre-web:
-    image: lscr.io/linuxserver/calibre-web:latest
-    container_name: calibre-web
+  komga:
+    image: gotson/komga:latest
+    container_name: komga
+    user: "1800:1800"
     environment:
-      - PUID=1800
-      - PGID=1800
-      - TZ=Etc/UTC
-      - DOCKER_MODS=linuxserver/mods:universal-calibre 
+      - TZ=America/New_York
+      - JAVA_OPTS=-Xmx1g 
     volumes:
-      - ./calibre-web/data:/config
-      - ${MEDIA_ROOT}/books:/books # Pointed to /books to match Calibre
+      - ./komga/config:/config
+      - ${ROOT_DIR}/media/comics:/comics
+      - ${ROOT_DIR}/media/manga:/manga
     ports:
-      - 8083:8083
+      - 25600:25600
     restart: unless-stopped
-  flaresolverr:
-    image: flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
-    network_mode: "service:gluetun"
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - LOG_LEVEL=info
-      - TZ=Etc/UTC
-    restart: unless-stopped
+
+  # calibre-web:
+  #   image: lscr.io/linuxserver/calibre-web:latest
+  #   container_name: calibre-web
+  #   environment:
+  #     - PUID=1800
+  #     - PGID=1800
+  #     - TZ=Etc/UTC
+  #     - DOCKER_MODS=linuxserver/mods:universal-calibre 
+  #   volumes:
+  #     - ./calibre-web/data:/config
+  #     - ${ROOT_DIR}/media/books:/books # Pointed to /books to match Calibre
+  #   ports:
+  #     - 8083:8083
+  #   restart: unless-stopped
