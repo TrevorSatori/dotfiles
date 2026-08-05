@@ -7,11 +7,20 @@
     exec_user_id: 1800
     exec_group_id: 1800
     
-    # Paths (User assumes these are already mounted/present)
+    # Capture the actual calling user (not root)
+    target_real_user: "{{ ansible_env.SUDO_USER | default(lookup('env', 'USER')) }}"
+    
+    # Paths
     storage_pool_path: "/data"
     media_stack_path: "/opt/media_stack"
+    dotfiles_path: "/home/{{ ansible_env.SUDO_USER | default(lookup('env', 'USER')) }}/.dotfiles"
 
   tasks:
+    - name: Ensure GNU Stow is installed
+      ansible.builtin.package:
+        name: stow
+        state: present
+
     - name: Ensure the execution group exists
       ansible.builtin.group:
         name: "{{ exec_user_name }}"
@@ -30,23 +39,30 @@
 
     - name: Link calling user to the execution group
       ansible.builtin.user:
-        name: "{{ lookup('env', 'USER') }}"
+        name: "{{ target_real_user }}"
         groups: "{{ exec_user_name }}"
         append: yes
+      when: target_real_user != 'root'
 
     - name: Apply hardened permissions to existing storage pool
       ansible.builtin.file:
         path: "{{ storage_pool_path }}"
         owner: "{{ exec_user_id }}"
         group: "{{ exec_group_id }}"
-        mode: '2775' # SetGID for inheritance
+        mode: '2775' # SetGID for group inheritance
         recurse: yes
 
-    - name: Initialize and secure the application path in /opt
+    - name: Initialize and secure the application base path in /opt
       ansible.builtin.file:
         path: "{{ media_stack_path }}"
         state: directory
         owner: "{{ exec_user_id }}"
         group: "{{ exec_group_id }}"
         mode: '2775'
-        recurse: yes
+        recurse: no
+
+    - name: Stow media_stack package to root
+      ansible.builtin.command:
+        cmd: "stow --dir={{ dotfiles_path }} --target=/ media_stack"
+      register: stow_result
+      changed_when: stow_result.rc == 0

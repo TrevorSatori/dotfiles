@@ -20,6 +20,21 @@ vim.opt.number = true           -- Shows absolute line numbers
 vim.opt.relativenumber = true  -- Shows relative numbers (optional but common)
 
 -- Yank / paste  to system clipboard in normal and visual mode
+-- Over SSH, route the '+' / '*' registers through OSC 52 so yanks land on
+-- the *client's* clipboard (the person SSH'd in), not the remote box.
+if os.getenv("SSH_TTY") or os.getenv("SSH_CONNECTION") then
+  vim.g.clipboard = {
+    name = "OSC 52",
+    copy = {
+      ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
+      ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
+    },
+    paste = {
+      ["+"] = require("vim.ui.clipboard.osc52").paste("+"),
+      ["*"] = require("vim.ui.clipboard.osc52").paste("*"),
+    },
+  }
+end
 vim.opt.clipboard = "unnamedplus"
 
 -- Go to definition
@@ -42,3 +57,4 @@ vim.api.nvim_set_hl(0, "NormalNC", { bg = "none" })
 vim.api.nvim_set_hl(0, "SignColumn", { bg = "none" })
 vim.api.nvim_set_hl(0, "VertSplit", { bg = "none" })
 vim.api.nvim_set_hl(0, "EndOfBuffer", { bg = "none" })
+
