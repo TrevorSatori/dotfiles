@@ -157,6 +157,7 @@ local mainMod = "ALT"
 
 -- Core System Binds
 hl.bind(mainMod .. " + Return",    hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + W",    hl.dsp.exec_cmd("hyprsunset -g 90 --temperature 3500"))
 hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
 hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.exit())
 hl.bind(mainMod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
