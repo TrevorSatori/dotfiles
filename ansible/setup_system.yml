@@ -48,6 +48,8 @@
           - fastfetch
           - flatpak
           - git
+          - less
+          - stripe-cli-bin
           - thunar
           - kitty
           - starship
@@ -57,10 +59,12 @@
           - seahorse
           - discord
           - gvfs
+          - gvfs-smb
           - btrfs-progs
           - qbittorrent
           - stow
           - neovim
+          - parallel
           - 7zip
           - cronie
           - rsync
@@ -130,6 +134,7 @@
       pacman:
         name:
           - hyprland
+          - hyprsunset
           - hypridle
           - hyprpaper
           - hyprlock

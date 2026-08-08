@@ -78,6 +78,9 @@ format = '[\[$symbol$status_common_meaning$status_signal_name$status_maybe_int\]
 map_symbol = true
 disabled = false
 
+[localip]
+disabled = true
+
 [aws]
 symbol = " "
 
