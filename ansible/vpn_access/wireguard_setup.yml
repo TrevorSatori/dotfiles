@@ -1,0 +1,141 @@
+- name: Deploy WireGuard Relay on DigitalOcean
+  hosts: localhost
+  connection: local
+  become: true
+  vars:
+    wireguard_dir: "/opt/wireguard"
+    admin_user: "satori"
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - ufw
+        state: present
+        update_cache: yes
+
+    # --- User Management & SSH Hardening Tasks ---
+
+    - name: Create sudo user
+      user:
+        name: "{{ admin_user }}"
+        groups: sudo
+        append: yes
+        shell: /bin/bash
+        state: present
+
+    - name: Ensure .ssh directory exists for user
+      file:
+        path: "/home/{{ admin_user }}/.ssh"
+        state: directory
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: '0700'
+
+    - name: Copy root's authorized_keys to new user
+      copy:
+        src: /root/.ssh/authorized_keys
+        dest: "/home/{{ admin_user }}/.ssh/authorized_keys"
+        remote_src: yes
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+        mode: '0600'
+      ignore_errors: yes # Prevents task failure if /root/.ssh/authorized_keys doesn't exist
+      
+    - name: Lock the root user account password
+      user:
+        name: root
+        password_lock: yes
+
+    - name: Disable root SSH login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    # --- System & Networking Configuration ---
+
+    - name: Ensure IP forwarding is enabled in sysctl
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Configure UFW rules
+      community.general.ufw:
+        rule: "{{ item.rule }}"
+        port: "{{ item.port | default(omit) }}"
+        proto: "{{ item.proto | default(omit) }}"
+        state: enabled
+      loop:
+        - { rule: 'allow', port: '22', proto: 'tcp' }
+        - { rule: 'allow', port: '51820', proto: 'udp' }
+        - { rule: 'deny', port: '51821' }
+
+    - name: Ensure UFW firewall is enabled with default incoming policy
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    # --- Docker Deployment ---
+
+    - name: Ensure Docker directory exists in /opt
+      file:
+        path: "{{ wireguard_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy wg-easy docker-compose.yml
+      copy:
+        dest: "{{ wireguard_dir }}/docker-compose.yml"
+        mode: '0644'
+        content: |
+          services:
+            wg-easy:
+              image: ghcr.io/wg-easy/wg-easy:15
+              container_name: wg-easy
+              privileged: true
+              environment:
+                - WG_HOST=vpn.lo-pan.com
+              volumes:
+                - ./.wg-easy:/etc/wireguard
+                - /lib/modules:/lib/modules
+              ports:
+                - "51820:51820/udp"
+                - "127.0.0.1:51821:51821/tcp"
+              restart: unless-stopped
+              cap_add:
+                - NET_ADMIN
+                - SYS_MODULE
+              sysctls:
+                - net.ipv4.ip_forward=1
+                - net.ipv4.conf.all.src_valid_mark=1
+
+    - name: Spin up Docker Stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ wireguard_dir }}"
+        state: present
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: ssh
+        state: restarted
+

@@ -35,7 +35,14 @@ if os.getenv("SSH_TTY") or os.getenv("SSH_CONNECTION") then
     },
   }
 end
-vim.opt.clipboard = "unnamedplus"
+-- Do NOT set clipboard=unnamedplus (that routes deletes to the system clipboard too).
+-- Instead, map yanks explicitly to the + register so dd/x/c stay in the default register.
+vim.keymap.set({"n", "v"}, "y", "\"+y", { noremap = true })
+vim.keymap.set({"n", "v"}, "Y", "\"+Y", { noremap = true })
+vim.keymap.set("n", "yy", "\"+yy", { noremap = true })
+-- Paste from system clipboard with leader-p if you want it explicit; regular p uses default register.
+vim.keymap.set({"n", "v"}, "<leader>p", "\"+p", { noremap = true })
+vim.keymap.set({"n", "v"}, "<leader>P", "\"+P", { noremap = true })
 
 -- Go to definition
 vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { noremap=true, silent=true })

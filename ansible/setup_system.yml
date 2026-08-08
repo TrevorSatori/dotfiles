@@ -65,6 +65,8 @@
           - cronie
           - rsync
           - foliate
+          - wireguard-tools
+          - systemd-resolvconf
           - languagetool
           - htop
           - network-manager-applet
@@ -168,7 +170,7 @@
     - name: Install Docker and Docker Compose
       become: true
       pacman:
-        name: [docker, docker-compose]
+        name: [docker, docker-compose, docker-buildx]
         state: present
 
     - name: Add user to docker group

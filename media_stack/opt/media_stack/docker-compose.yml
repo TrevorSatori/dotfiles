@@ -1,4 +1,36 @@
 services:
+  caddy:
+    build:
+      dockerfile_inline: |
+        FROM caddy:builder AS builder
+        RUN xcaddy build --with github.com/caddy-dns/cloudflare
+        FROM caddy:latest
+        COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+    container_name: caddy
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    security_opt:
+      - no-new-privileges
+    read_only: false
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: lo-pan,lo-pan:3000,localhost,127.0.0.1 # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+      PUID: 1000
+      PGID: 968
+    ports:
+      - 3000:3000
+    volumes:
+      - ./homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
@@ -258,6 +290,23 @@ services:
       - ${ROOT_DIR}/media/audiobooks:/audiobooks
     environment:
       - TZ=America/Chicago
+    restart: unless-stopped
+
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: freshrss
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PUID=1800
+      - PGID=1800
+      - TZ=America/Chicago
+      - CRON_MIN=*/20
+    ports:
+      - "1080:80"
+    volumes:
+      - ./freshrss/data:/var/www/FreshRSS/data
+      - ./freshrss/extensions:/var/www/FreshRSS/extensions
     restart: unless-stopped
 
   syncthing:
